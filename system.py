@@ -32,7 +32,9 @@ class System:
 		self.charge = charge
 		self.dt = dt 
 		self.T = T
-		self.force = force #A fu
+		#self.force = force #A user defined function
+							#to calculate the interaction
+							#force between two particles
 
 
 	def particle(self, state, i):
@@ -42,31 +44,38 @@ class System:
 				state[2*i+1+2*N]])
 		return pi
 
-	def acceleration(self):
+	def force(self, p1, p2):
+		r = p1[:2] - p2[:2]
+		return r
+
+	def acceleration(self, state):
 		"""Returns an acceleration matrix,
 		where every row vector in this matrix
 		is the acceleration vector of its 
 		respective particle"""
 		acceleration = np.zeros(2*self.N) #A null vector consisting of 
-									 #2N elements, ax_i and ay_i
+										  #2N elements, ax_i and ay_i
 		for i in range(0, self.N):
-			pi = self.particle(self.state, i)
+			pi = self.particle(state, i)
 			#Here one would write also a bounce function to take
 			#the boundaries of the problem into account
 			for j in range(0, i):
-				pj = self.particle(self.state, j)
-				F = self.force(pi, pj)
-				mi = self.mass[i//2]
-				mj = self.mass[j//2]
-				acceleration[i:i+2] += F/mi
-				acceleration[j:j+2] -= F/mj
+                            #print("Particle {} with particle {}".format(i, j))
+                            pj = self.particle(state, j)
+                            F = self.force(pi, pj)
+                            mi = self.mass[i]
+                            mj = self.mass[j]
+                            acceleration[2*i:2*i+2] -= F/mi
+                            acceleration[2*j:2*j+2] += F/mj
 		return acceleration	
 
 	def dstatedt(self, t, state):
-		a = self.acceleration() #a is an acceleration vector of the whole system
+		
+		a = self.acceleration(state) #a is an acceleration vector of the whole system
 		dstate = np.zeros(4*self.N) #[0, 0, ..., 0, 0, ...] those are
 		dstate[:2*self.N] += state[2*self.N:]
 		dstate[2*self.N:] += a
+		self.counter += 1
 		return dstate
 
 	def euler(self):
@@ -96,19 +105,18 @@ class System:
 		return sol
 		
 	def integrate_odeint(self):
+		self.counter = 0
 		"""Computes entire trajectory of the two particles, 
 			returning it as a T x N x 4 matrix, being T
 			the amount of instants the solver considered"""
 		solution = odeint(self.dstatedt, self.state,
 							 np.arange(0, self.T, self.dt), tfirst=True)
-		#print(self.particle(solution.y[:, 0], 0))
-		#print(Y)
+
 		sol = np.zeros((len(solution[:, 0]), self.N, 4))
 		for i, instant in enumerate(solution):
 			for p in range(self.N):
 				sol[i, p] += self.particle(instant, p)
 
-		print(sol)
 		print("Done!")
 		return sol
 

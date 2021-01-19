@@ -4,33 +4,78 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 
-def force(p1, p2):
-	"""spring force"""
-	k = 0
-	r = p1[:2] - p2[:2] #[:2] are the positions of the particles,
+"""def force(p1, p2):
+        #Always forces in between particles
+        c = 3e8
+
+        k = 9e9
+        epsilon = 1/(4*np.pi*k)
+        mu = 1/epsilon/c**2
+
+        v1 = np.array((*p1[2:], 0.))
+        v2 = np.array((*p2[2:], 0.))
+        r = p2[:2] - p1[:2] #[:2] are the positions of the particles,
 						#[2:] are the speeds
-	return k * r
+        rr = np.linalg.norm(r)
 
-np.random.seed(0)
-P1 = 5*np.random.random(4)
-P2 = 5*np.random.random(4)
+        q2 = -1 #q1 = 1
 
-state0 = [P1, P2]
-mass = [1, 2]
-charge = [1, -1]
+        E = k*q2*r/rr**3
+        B = 1/c**2 * np.array((0, 0, np.cross(v2, E)))
+        F = np.array((0, 0, np.cross(v1, B))) + E
+        return F
+"""
+def force(p1, p2):
+    r = p2[:2] - p1[:2]
+    rr = np.linalg.norm(r)
+    return -12 * r/rr**13 + 6 * r /rr*10
 
+#np.random.seed(0)
+
+N = 15
+state0 = np.random.random((N, 4)) #Random initial condition
+mass = 2*np.random.random(N)
+charge = np.random.random(N)
 width = 1
-dt = 1
-T = 100
+dt = 1/30
+T = 10
+
+#Calculating center of mass speed
+V = state0[:, 2]
+print(state0)
+print(V)
+m = np.reshape(mass, (N, 1))
+MVcm = np.dot(m.T, V)[0]
+Vcm = MVcm/sum(m)
+
+state0[:, 2] -= Vcm #This way the system stays put
+
 sim = System(state0, force, mass, charge, width, dt, T)
 
-solution = sim.integrate_odeint()
+solution = sim.integrate_odeint() #A (T, N, 4) matrix. Every T is a
+								  #frame, every N is a particle and
+								  #every 4 is a 'configurational' variable
+								  #quote marks being because speed is 
+								  #not a phase variable and configu-
+								  #rational variables are only the po-
+								  #sitions.
 
 fig, ax = plt.subplots()
 
+xmax = max(solution[:, :, 0].ravel())
+xmin = min(solution[:, :, 0].ravel())
+ax.set_xlim((xmin, xmax)) #Gets the highest and lowest x value
 
-#TODO Find a way to plot using FuncAnimation from a 'configurational
-#matrix'. We have each position and speed for each time, so given
-#that we should be able to plot it fairly 'easily'
+ymax = max(solution[:, :, 1].ravel())
+ymin = min(solution[:, :, 1].ravel())
+ax.set_ylim((ymin, ymax)) #Gets the highest and lowest y value
 
+line, = plt.plot(solution[0, :, 0], solution[0, :, 1], 'bo')
+
+def animate(i):
+    line.set_data(solution[i, :, 0], solution[i, :, 1])
+    return line,
+
+ani = FuncAnimation(fig, animate, frames=int(T//dt), interval=int(1/dt))
+ani.save(r'animation.gif', fps=1/dt)
 plt.show()
